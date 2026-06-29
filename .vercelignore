@@ -1,0 +1,5 @@
+# Vercel ignore
+node_modules
+.next
+.env.local
+.env*.local
