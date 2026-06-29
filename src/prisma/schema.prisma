@@ -20,6 +20,8 @@ model Experiment {
   startedAt      DateTime?
   finishedAt     DateTime?
   createdAt      DateTime @default(now())
+  originalAudio  Bytes?
+  chromosome     String?
 
   generationLogs GenerationLog[]
   audioSnapshots AudioSnapshot[]
@@ -45,6 +47,7 @@ model AudioSnapshot {
   filePath       String
   isOriginal     Boolean  @default(false)
   createdAt      DateTime @default(now())
+  audioData      Bytes?
 
   experimentId   Int
   experiment     Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)

@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
-import { readFile } from "fs/promises";
-import path from "path";
 import { prisma } from "@/lib/prisma";
 import { createAlgorithm } from "@/lib/evolution";
-import { saveSynthesizedAudio } from "@/lib/audio/synthesizer";
+import { synthesizeToWav } from "@/lib/audio/synthesizer";
 
 const SNAPSHOT_INTERVAL = 2000;
-const LOG_INTERVAL = 50; // افزایش از 10 به 50 برای کاهش نوشتن DB
+const LOG_INTERVAL = 50;
 
 export async function POST(request) {
   try {
@@ -28,40 +26,14 @@ export async function POST(request) {
       return NextResponse.json({ error: "آزمایش یافت نشد" }, { status: 404 });
     }
 
-    // بارگیری features و chromosome از فایل
-    const featuresPath = path.join(
-      process.cwd(),
-      "public",
-      experiment.targetFile + ".features.json",
-    );
-
-    let features;
-    try {
-      const raw = await readFile(featuresPath, "utf-8");
-      features = JSON.parse(raw);
-      console.log("📂 Loaded features:", {
-        hasChromosome: !!features.chromosome,
-        chromosomeSize: features.chromosome?.length,
-        hasMfcc: !!features.mfcc,
-        hasFftSpectrum: !!features.fftSpectrum,
-      });
-    } catch (err) {
-      console.error("❌ Failed to load features:", err);
+    if (!experiment.chromosome) {
       return NextResponse.json(
-        { error: "فایل ویژگی‌ها یافت نشد" },
-        { status: 404 },
-      );
-    }
-
-    if (!features.chromosome || !Array.isArray(features.chromosome)) {
-      console.error("❌ Invalid chromosome in features file");
-      return NextResponse.json(
-        { error: "کروموزوم هدف نامعتبر است" },
+        { error: "کروموزوم هدف یافت نشد" },
         { status: 400 },
       );
     }
 
-    const targetChromosome = features.chromosome;
+    const targetChromosome = JSON.parse(experiment.chromosome);
 
     console.log(`🧬 Target chromosome stats:`, {
       length: targetChromosome.length,
@@ -113,38 +85,32 @@ export async function POST(request) {
         }
       }
 
-      // Flush logs every 100 generations
       if (logBatch.length >= 100) {
         await prisma.generationLog.createMany({ data: logBatch });
         logBatch = [];
       }
 
-      // Save audio snapshot every SNAPSHOT_INTERVAL
       if (stats.generation % SNAPSHOT_INTERVAL === 0) {
         if (logBatch.length > 0) {
           await prisma.generationLog.createMany({ data: logBatch });
           logBatch = [];
         }
 
-        const audioPath = await saveSynthesizedAudio(
-          stats.bestEverChromosome,
-          stats.generation,
-          experimentId,
-        );
+        const wavBuffer = await synthesizeToWav(stats.bestEverChromosome, 3);
 
         await prisma.audioSnapshot.create({
           data: {
             generation: stats.generation,
-            filePath: audioPath,
+            filePath: `exp${experimentId}_gen${stats.generation}.wav`,
             isOriginal: false,
             experimentId,
+            audioData: wavBuffer,
           },
         });
 
         console.log(`🎵 Saved audio snapshot at gen ${stats.generation}`);
       }
 
-      // Stop only if convergence is nearly perfect
       if (stats.bestFitness >= 0.999) {
         console.log(
           `🎯 Reached target fitness ${stats.bestFitness.toFixed(6)} at gen ${gen}`,
@@ -153,7 +119,6 @@ export async function POST(request) {
       }
     }
 
-    // Flush remaining logs
     if (logBatch.length > 0) {
       await prisma.generationLog.createMany({ data: logBatch });
     }

@@ -23,9 +23,8 @@ export default function AudioPlayer({ snapshots }) {
   const allItems = original ? [original, ...generated] : generated;
   const current = allItems[currentIndex];
 
-  const currentPath = current?.filePath;
+  const audioSrc = current?.id ? `/api/audio?snapshotId=${current.id}` : null;
 
-  // پخش خودکار وقتی نسل جدید اضافه می‌شود
   useEffect(() => {
     if (
       autoPlay &&
@@ -34,7 +33,6 @@ export default function AudioPlayer({ snapshots }) {
     ) {
       const newSnapshots = snapshots.filter((s) => !s.isOriginal);
       if (newSnapshots.length > 0) {
-        // به آخرین نسل برو
         const lastGeneratedIndex = allItems.findIndex(
           (item) =>
             item.generation ===
@@ -50,7 +48,7 @@ export default function AudioPlayer({ snapshots }) {
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (audio && currentPath) {
+    if (audio && audioSrc) {
       audio.pause();
       audio.load();
       if (autoPlay) {
@@ -58,7 +56,7 @@ export default function AudioPlayer({ snapshots }) {
         setPlaying(true);
       }
     }
-  }, [currentPath, autoPlay]);
+  }, [audioSrc, autoPlay]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -139,7 +137,7 @@ export default function AudioPlayer({ snapshots }) {
 
       <audio
         ref={audioRef}
-        src={current?.filePath}
+        src={audioSrc}
         onEnded={() => setPlaying(false)}
         preload="auto"
       />
@@ -172,7 +170,7 @@ export default function AudioPlayer({ snapshots }) {
       <div className="mt-3 flex gap-1 overflow-x-auto pb-1">
         {allItems.map((snap, i) => (
           <button
-            key={`audio-${snap.generation}-${i}-${snap.filePath}`}
+            key={`audio-${snap.generation}-${i}-${snap.id}`}
             onClick={() => {
               setCurrentIndex(i);
               setPlaying(false);

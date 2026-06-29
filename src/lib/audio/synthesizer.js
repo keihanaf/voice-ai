@@ -1,9 +1,5 @@
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
-
 const SAMPLE_RATE = 44100;
 
-// Interpolate waveform to target duration
 function interpolateWaveform(chromosome, targetSamples) {
   const output = new Float64Array(targetSamples);
   const ratio = chromosome.length / targetSamples;
@@ -14,7 +10,6 @@ function interpolateWaveform(chromosome, targetSamples) {
     const hi = Math.min(lo + 1, chromosome.length - 1);
     const frac = srcIdx - lo;
 
-    // Denormalize from [-50, 50] to [-1, 1]
     const valLo = chromosome[lo] / 50;
     const valHi = chromosome[hi] / 50;
 
@@ -24,10 +19,9 @@ function interpolateWaveform(chromosome, targetSamples) {
   return output;
 }
 
-// Apply light smoothing to reduce artifacts
 function smoothWaveform(samples) {
   const output = new Float64Array(samples.length);
-  const windowSize = 3; // کاهش از 5 به 3
+  const windowSize = 3;
   const halfWindow = Math.floor(windowSize / 2);
 
   for (let i = 0; i < samples.length; i++) {
@@ -48,7 +42,6 @@ function smoothWaveform(samples) {
   return output;
 }
 
-// Synthesis از کروموزوم (که خود waveform است!)
 export async function synthesizeFromMFCC(
   chromosome,
   referenceFftSpectrum,
@@ -60,13 +53,9 @@ export async function synthesizeFromMFCC(
     `🎙️ Direct waveform synthesis: chromosome=${chromosome.length} → ${totalSamples} samples`,
   );
 
-  // 1. Interpolate کروموزوم به اندازه هدف
   let output = interpolateWaveform(chromosome, totalSamples);
-
-  // 2. اعمال smoothing برای کاهش artifacts
   output = smoothWaveform(output);
 
-  // 3. نرمال‌سازی amplitude
   let maxAmp = 0;
   for (let i = 0; i < output.length; i++) {
     const abs = Math.abs(output[i]);
@@ -75,12 +64,11 @@ export async function synthesizeFromMFCC(
 
   if (maxAmp > 0) {
     for (let i = 0; i < output.length; i++) {
-      output[i] = (output[i] / maxAmp) * 0.7; // Scale to 70%
+      output[i] = (output[i] / maxAmp) * 0.7;
     }
   }
 
-  // 4. Fade in/out برای جلوگیری از click
-  const fadeLength = Math.min(2205, output.length / 10); // ~50ms
+  const fadeLength = Math.min(2205, output.length / 10);
   for (let i = 0; i < fadeLength; i++) {
     const fade = i / fadeLength;
     output[i] *= fade;
@@ -133,21 +121,10 @@ function encodeWav(samples, sampleRate) {
   return buffer;
 }
 
-export async function saveSynthesizedAudio(
-  chromosome,
-  generation,
-  experimentId,
-) {
-  const samples = await synthesizeFromMFCC(chromosome, null, 3);
+export async function synthesizeToWav(chromosome, duration = 3) {
+  const samples = await synthesizeFromMFCC(chromosome, null, duration);
   const wavBuffer = encodeWav(samples, SAMPLE_RATE);
 
-  const outputDir = path.join(process.cwd(), "public", "outputs");
-  await mkdir(outputDir, { recursive: true });
-
-  const fileName = `exp${experimentId}_gen${generation}.wav`;
-  const filePath = path.join(outputDir, fileName);
-  await writeFile(filePath, wavBuffer);
-
-  console.log(`💾 ${fileName} (${(wavBuffer.length / 1024).toFixed(1)}KB)`);
-  return `/outputs/${fileName}`;
+  console.log(`💾 Synthesized WAV: ${(wavBuffer.length / 1024).toFixed(1)}KB`);
+  return wavBuffer;
 }

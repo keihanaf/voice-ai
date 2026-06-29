@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 import { prisma } from "@/lib/prisma";
 import {
   parseWav,
@@ -32,13 +30,6 @@ export async function POST(request) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const audioDir = path.join(process.cwd(), "public", "audio");
-    await mkdir(audioDir, { recursive: true });
-
-    const fileName = `${Date.now()}_${file.name}`;
-    const filePath = path.join(audioDir, fileName);
-    await writeFile(filePath, buffer);
-
     const parsed = await parseWav(buffer);
     const samples = parsed.channelData[0];
     const features = extractFeatures(samples, parsed.sampleRate);
@@ -51,31 +42,25 @@ export async function POST(request) {
         mutationRate: 0.1,
         crossoverRate: 0.7,
         populationSize: 100,
-        targetFile: `/audio/${fileName}`,
+        targetFile: file.name,
         status: "ready",
+        originalAudio: buffer,
+        chromosome: JSON.stringify(chromosome),
       },
     });
-
-    const featuresPath = path.join(audioDir, `${fileName}.features.json`);
-    await writeFile(
-      featuresPath,
-      JSON.stringify({
-        ...features,
-        chromosome,
-      }),
-    );
 
     await prisma.audioSnapshot.create({
       data: {
         generation: 0,
-        filePath: `/audio/${fileName}`,
+        filePath: `original_${experiment.id}.wav`,
         isOriginal: true,
         experimentId: experiment.id,
+        audioData: buffer,
       },
     });
 
     console.log(
-      `✅ Uploaded: ${fileName}, chromosome size: ${chromosome.length}`,
+      `✅ Uploaded: ${file.name}, chromosome size: ${chromosome.length}`,
     );
 
     return NextResponse.json({
@@ -86,7 +71,7 @@ export async function POST(request) {
         algorithm: experiment.algorithm,
       },
       audio: {
-        fileName,
+        fileName: file.name,
         duration: parsed.duration,
         sampleRate: parsed.sampleRate,
         totalSamples: features.totalSamples,

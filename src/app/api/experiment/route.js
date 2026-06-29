@@ -48,6 +48,7 @@ export async function GET(request) {
         elapsedMs: log.elapsedMs,
       })),
       snapshots: experiment.audioSnapshots.map((snap) => ({
+        id: snap.id,
         generation: snap.generation,
         filePath: snap.filePath,
         isOriginal: snap.isOriginal,

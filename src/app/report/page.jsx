@@ -365,7 +365,7 @@ function ExperimentReport({ data, onExportCSV }) {
                     </td>
                     <td className="py-2 px-3 text-center">
                       <a
-                        href={snap.filePath}
+                        href={`/api/audio?snapshotId=${snap.id}`}
                         download
                         className="inline-flex items-center gap-1 px-3 py-1 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors text-xs"
                       >
