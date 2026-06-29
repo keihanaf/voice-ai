@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: voice-ai-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: voice_user
+      POSTGRES_PASSWORD: voice_pass
+      POSTGRES_DB: voice_ai
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

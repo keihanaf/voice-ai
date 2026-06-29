@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Experiment {
+  id             Int      @id @default(autoincrement())
+  name           String
+  algorithm      String
+  mutationRate   Float
+  crossoverRate  Float
+  populationSize Int
+  targetFile     String
+  status         String   @default("pending")
+  bestFitness    Float?
+  totalGenerations Int?
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  generationLogs GenerationLog[]
+  audioSnapshots AudioSnapshot[]
+}
+
+model GenerationLog {
+  id             Int      @id @default(autoincrement())
+  generation     Int
+  bestFitness    Float
+  avgFitness     Float
+  elapsedMs      Int?
+  createdAt      DateTime @default(now())
+
+  experimentId   Int
+  experiment     Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+
+  @@index([experimentId])
+}
+
+model AudioSnapshot {
+  id             Int      @id @default(autoincrement())
+  generation     Int
+  filePath       String
+  isOriginal     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  experimentId   Int
+  experiment     Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+
+  @@index([experimentId])
+}

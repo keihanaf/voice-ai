@@ -1,36 +1,140 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Voice AI
+
+Audio signal reconstruction using metaheuristic evolutionary algorithms. Upload or record a `.wav` file, then watch Genetic Algorithm, Particle Swarm Optimization, or Differential Evolution converge toward the original waveform in real time.
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 16 (App Router, React 19, React Compiler) |
+| Styling | Tailwind CSS 4 |
+| Database | PostgreSQL 16 (via Docker) |
+| ORM | Prisma 7 |
+| Audio | Web Audio API, wav-decoder, Meyda |
+| Charts | Recharts |
+| Icons | Lucide React |
+| Package Manager | pnpm |
+
+## Features
+
+- **Three evolutionary algorithms** — GA (tournament selection + BLX-α crossover), PSO (inertia-weighted), DE (rand/1/bin)
+- **Real-time dashboard** — live generation counter, best/average fitness, elapsed time
+- **Convergence chart** — interactive Recharts plot of fitness over generations
+- **Audio comparison player** — listen to original vs. best reconstruction at each snapshot
+- **Microphone recording** — record audio directly in the browser
+- **Full experiment report** — dedicated page with detailed fitness metrics (Euclidean, cosine, correlation, MSE, MAE)
+- **Persistent storage** — all experiments, generation logs, and audio snapshots saved to PostgreSQL
+
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── api/
+│   │   ├── upload/       # POST — upload .wav, create experiment
+│   │   ├── evolve/       # POST — run evolution loop
+│   │   └── experiment/   # GET  — fetch experiment data
+│   ├── report/           # Full experiment report page
+│   ├── layout.js         # Root layout (Vazirmatn font, RTL)
+│   └── page.js           # Main dashboard
+├── components/
+│   ├── EvolutionDashboard.jsx   # Main UI controller
+│   ├── ConvergenceChart.jsx     # Fitness chart
+│   ├── AudioPlayer.jsx          # Snapshot audio player
+│   ├── AudioRecorder.jsx        # Microphone recorder
+│   ├── AudioUploader.jsx        # File upload component
+│   └── CustomSelect.jsx         # Styled select dropdown
+├── lib/
+│   ├── audio/
+│   │   ├── processor.js    # WAV parsing, resampling, feature extraction
+│   │   └── synthesizer.js  # Chromosome → audio reconstruction
+│   ├── evolution/
+│   │   ├── base.js         # Shared utilities (population, fitness, selection)
+│   │   ├── ga.js           # Genetic Algorithm
+│   │   ├── pso.js          # Particle Swarm Optimization
+│   │   ├── de.js           # Differential Evolution
+│   │   └── index.js        # Algorithm factory
+│   ├── utils/
+│   │   └── fitness.js      # Distance metrics (Euclidean, cosine, correlation, etc.)
+│   └── prisma.js           # Prisma client singleton
+└── prisma/
+    └── schema.prisma       # Database schema
+```
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) ≥ 18
+- [pnpm](https://pnpm.io/) ≥ 8
+- [Docker](https://www.docker.com/) (for PostgreSQL)
+
+### 1. Clone & Install
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <repo-url>
+cd voice-ai
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Start the Database
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+```bash
+docker compose up -d
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+This starts PostgreSQL 16 on port `5434` with the credentials defined in `docker-compose.yml`.
 
-## Learn More
+### 3. Configure Environment
 
-To learn more about Next.js, take a look at the following resources:
+Create a `.env` file:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```env
+DATABASE_URL="postgresql://voice_user:voice_pass@localhost:5434/voice_ai"
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 4. Run Migrations
 
-## Deploy on Vercel
+```bash
+pnpm prisma migrate deploy
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 5. Start Development Server
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+## Available Scripts
+
+| Command | Description |
+|---------|-------------|
+| `pnpm dev` | Start Next.js dev server |
+| `pnpm build` | Create production build |
+| `pnpm start` | Start production server |
+| `pnpm lint` | Run ESLint |
+| `pnpm prisma migrate deploy` | Apply database migrations |
+| `pnpm prisma studio` | Open Prisma Studio (database GUI) |
+
+## How It Works
+
+1. **Upload/Record** — User provides a `.wav` audio file or records via microphone
+2. **Feature Extraction** — Audio is resampled to 44.1 kHz and downsampled to a 512-gene chromosome representing the waveform
+3. **Evolution** — The selected algorithm evolves a population of chromosomes, using cosine similarity as the primary fitness function
+4. **Logging** — Each generation's best and average fitness are stored in the database
+5. **Snapshots** — Periodically, the best chromosome is synthesized back to audio for comparison
+6. **Convergence** — The dashboard plots fitness over time, showing how the algorithm approaches the target signal
+
+## Database Schema
+
+```
+Experiment        → id, name, algorithm, mutationRate, crossoverRate, populationSize, status, bestFitness, ...
+  ├── GenerationLog   → generation, bestFitness, avgFitness, elapsedMs
+  └── AudioSnapshot   → generation, filePath, isOriginal
+```
+
+## License
+
+MIT
